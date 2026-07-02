@@ -1,3 +1,6 @@
+#[cfg(target_os = "linux")]
+mod wayland;
+
 use arboard::Clipboard;
 use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 use log::warn;
@@ -13,6 +16,9 @@ pub enum ClipboardPasteError {
     EmptyText,
     #[error("Clipboard error: {0}")]
     ClipboardError(#[from] arboard::Error),
+    #[cfg(target_os = "linux")]
+    #[error(transparent)]
+    PortalPaste(#[from] wayland::PortalPasteError),
 }
 
 /// Auto-paste text
@@ -28,6 +34,15 @@ pub fn paste_text(text: &str) -> Result<(), ClipboardPasteError> {
     // Guard: Don't paste empty text
     if text.is_empty() {
         return Err(ClipboardPasteError::EmptyText);
+    }
+
+    // On Wayland, arboard can't reach the clipboard from inside the Flatpak
+    // sandbox (the privileged data-control protocols are withheld from sandboxed
+    // clients), so paste goes entirely through the RemoteDesktop + Clipboard
+    // portals, which own the selection and inject Ctrl+V themselves.
+    #[cfg(target_os = "linux")]
+    if dictara_keyboard::is_wayland_session() {
+        return Ok(wayland::paste_text(text)?);
     }
 
     // Save current clipboard content (if any)
@@ -73,9 +88,17 @@ fn set_current_clipboard(text: &str) -> Result<(), arboard::Error> {
     clipboard.set_text(text.to_string())
 }
 
-/// Simulate Cmd+V (macOS) or Ctrl+V (Windows/Linux) using enigo
-/// Uses virtual key codes to work regardless of keyboard layout
+/// Simulate Cmd+V (macOS) or Ctrl+V (Windows/Linux-X11) via enigo.
+///
+/// Wayland never reaches here: `paste_text` handles it end-to-end through the
+/// portals (enigo can't synthesize input on Wayland).
 pub fn simulate_paste() -> Result<(), ClipboardPasteError> {
+    simulate_paste_enigo()
+}
+
+/// Simulate the paste keystroke with enigo (macOS, Windows, Linux/X11).
+/// Uses virtual key codes to work regardless of keyboard layout
+fn simulate_paste_enigo() -> Result<(), ClipboardPasteError> {
     let mut enigo = Enigo::new(&Settings::default())
         .map_err(|e| ClipboardPasteError::EnigoInitFailed(e.to_string()))?;
 

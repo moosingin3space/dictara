@@ -292,13 +292,24 @@ async fn run_session<F>(
         }
     }
 
+    // Rising/falling-edge tracking. GNOME's portal re-emits `Activated` on key
+    // auto-repeat while the trigger is held (one `Deactivated` on release), so
+    // without this a held shortcut would fire many times a second. We surface
+    // only the first `Activated` and the matching `Deactivated`, hiding repeats
+    // — restoring press/hold/release semantics the callers expect.
+    let mut active: std::collections::HashSet<String> = std::collections::HashSet::new();
+
     loop {
         tokio::select! {
             event = activated.next() => {
                 match event {
-                    Some(activation) => callback(PortalShortcutEvent::Activated {
-                        id: activation.shortcut_id().to_string(),
-                    }),
+                    Some(activation) => {
+                        let id = activation.shortcut_id().to_string();
+                        if active.insert(id.clone()) {
+                            callback(PortalShortcutEvent::Activated { id });
+                        }
+                        // else: auto-repeat of an already-active shortcut; ignore
+                    }
                     None => {
                         error!("GlobalShortcuts Activated signal stream closed");
                         break;
@@ -307,9 +318,12 @@ async fn run_session<F>(
             }
             event = deactivated.next() => {
                 match event {
-                    Some(deactivation) => callback(PortalShortcutEvent::Deactivated {
-                        id: deactivation.shortcut_id().to_string(),
-                    }),
+                    Some(deactivation) => {
+                        let id = deactivation.shortcut_id().to_string();
+                        if active.remove(&id) {
+                            callback(PortalShortcutEvent::Deactivated { id });
+                        }
+                    }
                     None => {
                         error!("GlobalShortcuts Deactivated signal stream closed");
                         break;

@@ -93,7 +93,12 @@ keyring = { version = "3", features = ["sync-secret-service"] }
 # (remote_desktop internally needs the screencast feature's types).
 # raw_handle + wayland let us build a WindowIdentifier from the Tauri window
 # so the GlobalShortcuts configuration dialog is parented to our window.
-ashpd = { version = "0.13", default-features = false, features = ["tokio", "remote_desktop", "screencast", "raw_handle", "wayland"] }
+ashpd = { version = "0.13", default-features = false, features = ["tokio", "remote_desktop", "screencast", "clipboard", "raw_handle", "wayland"] }
 # For HasWindowHandle/HasDisplayHandle on the Tauri window (matches ashpd's)
 raw-window-handle = "0.6"
+# arboard defaults to the X11 clipboard, but XWayland isn't shared into the
+# Flatpak sandbox (DISPLAY points at an unreachable :0), so clipboard writes time
+# out. Enable the Wayland data-control backend, which arboard auto-selects when
+# WAYLAND_DISPLAY is set. wl-clipboard-rs is Linux-only, hence the target gate.
+arboard = { version = "3.3", features = ["wayland-data-control"] }
 

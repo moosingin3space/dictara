@@ -57,6 +57,9 @@ pub struct Shortcut {
 
 impl Shortcut {
     /// Check if this shortcut matches currently pressed keys
+    // Only the raw key-capture listener matches keys in-process; on Linux the
+    // GlobalShortcuts portal does the matching in the compositor
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub fn matches(&self, pressed_keys: &std::collections::HashSet<u32>) -> bool {
         // Exact match: same count AND all keys present
         self.keys.len() == pressed_keys.len()

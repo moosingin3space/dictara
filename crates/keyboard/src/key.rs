@@ -447,7 +447,10 @@ impl Key {
             Key::MissionControl => 160,
             Key::Unknown(code) => *code,
             Key::PrintScreen | Key::Pause | Key::ScrollLock => 0, // No direct macOS equivalent
-            Key::BrightnessUp | Key::BrightnessDown | Key::PreviousTrack | Key::NextTrack
+            Key::BrightnessUp
+            | Key::BrightnessDown
+            | Key::PreviousTrack
+            | Key::NextTrack
             | Key::PlayPause => 0, // Media keys not commonly used for shortcuts
         }
     }

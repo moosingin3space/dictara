@@ -28,10 +28,29 @@ mod key;
 #[cfg(target_os = "macos")]
 mod macos;
 
+#[cfg(target_os = "linux")]
+pub mod linux;
+
 pub use event::{Event, EventType};
 pub use key::Key;
 
 use thiserror::Error;
+
+/// Whether the current process is running inside a Wayland session.
+///
+/// This is the single shared detection point for anything that needs to
+/// branch on session type (portal-based input injection, hotkey backends,
+/// capability reporting). Always `false` on macOS.
+pub fn is_wayland_session() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        false
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        std::env::var_os("WAYLAND_DISPLAY").is_some_and(|v| !v.is_empty())
+    }
+}
 
 /// Errors that can occur when grabbing keyboard events.
 #[derive(Debug, Error)]
@@ -56,6 +75,10 @@ pub enum GrabError {
     /// Platform not supported.
     #[error("Platform not supported")]
     UnsupportedPlatform,
+
+    /// The XDG GlobalShortcuts portal could not be reached (Linux).
+    #[error("GlobalShortcuts portal unavailable: {0}")]
+    PortalUnavailable(String),
 }
 
 /// Callback type for the grab function.

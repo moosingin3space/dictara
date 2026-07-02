@@ -391,6 +391,31 @@ async stopKeyCapture() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getShortcutCaptureCapability() : Promise<ShortcutCaptureCapability> {
+    return await TAURI_INVOKE("get_shortcut_capture_capability");
+},
+/**
+ * Open the compositor's shortcut configuration dialog (Linux/Wayland only)
+ */
+async configureSystemShortcuts() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("configure_system_shortcuts") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * List shortcuts as currently bound by the compositor (Linux/Wayland only)
+ */
+async listSystemShortcuts() : Promise<Result<SystemShortcut[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_system_shortcuts") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Enable autostart on system boot
  */
@@ -615,6 +640,19 @@ export type Shortcut = { keys: ShortcutKey[] }
  * A single key in a shortcut combination
  */
 export type ShortcutKey = { keycode: number; label: string }
+/**
+ * How shortcuts can be configured on this platform/session
+ */
+export type ShortcutCaptureCapability = "rawCapture" | "portalBind" | "unavailable"
+/**
+ * A shortcut as bound by the compositor (GlobalShortcuts portal)
+ */
+export type SystemShortcut = { id: string; description: string;
+/**
+ * Human-readable trigger for display (e.g. "Ctrl+Alt+D");
+ * empty if the user hasn't assigned a trigger yet
+ */
+triggerDescription: string }
 /**
  * Complete shortcuts configuration
  */

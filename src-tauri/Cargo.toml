@@ -49,7 +49,9 @@ ort = { version = "=2.0.0-rc.10", features = ["copy-dylibs", "download-binaries"
 ndarray = "0.16"
 image = "0.25.9"
 derive_more = { version = "2.1.1", features = ["from", "display"] }
-keyring = { version = "3", features = ["apple-native"] }
+# Platform keychain backends are selected per-target below (keyring v3 has no
+# default backend; without one every call errors at runtime)
+keyring = "3"
 specta = { version = "=2.0.0-rc.22", features = ["derive"] }
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 specta-typescript = "0.0.9"
@@ -81,4 +83,17 @@ macos-accessibility-client = "0.0.1"
 # Metal/CoreML acceleration, macOS-only
 whisper-rs = { version = "0.13", features = ["metal"] }
 parakeet-rs = { version = "=0.2.7", features = ["coreml"] }
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# D-Bus Secret Service backend (GNOME Keyring / KWallet), sync so no extra
+# async runtime requirement
+keyring = { version = "3", features = ["sync-secret-service"] }
+# XDG desktop portals: RemoteDesktop for paste injection on Wayland
+# (remote_desktop internally needs the screencast feature's types).
+# raw_handle + wayland let us build a WindowIdentifier from the Tauri window
+# so the GlobalShortcuts configuration dialog is parented to our window.
+ashpd = { version = "0.13", default-features = false, features = ["tokio", "remote_desktop", "screencast", "raw_handle", "wayland"] }
+# For HasWindowHandle/HasDisplayHandle on the Tauri window (matches ashpd's)
+raw-window-handle = "0.6"
 

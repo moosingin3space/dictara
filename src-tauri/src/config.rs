@@ -572,7 +572,7 @@ mod tests {
         // Step 2: Set the value
         store
             .set(key, test_config.clone())
-            .expect(&format!("{}: Set should succeed", description));
+            .unwrap_or_else(|_| panic!("{}: Set should succeed", description));
 
         // Step 3: Get should return the same object
         let result: Option<T> = store.get(key);
@@ -589,12 +589,12 @@ mod tests {
         );
 
         // Step 4: Verify camelCase formatting
-        verify_camel_case(&store, key);
+        verify_camel_case(store, key);
 
         // Step 5: Delete the value
         store
             .delete(key)
-            .expect(&format!("{}: Delete should succeed", description));
+            .unwrap_or_else(|_| panic!("{}: Delete should succeed", description));
 
         // Step 6: Get should return None after delete
         let result: Option<T> = store.get(key);

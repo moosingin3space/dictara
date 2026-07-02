@@ -1,25 +1,17 @@
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useOnboardingNavigation } from '@/hooks/useOnboardingNavigation'
-import { useShortcutsConfig } from '@/hooks/useShortcutsConfig'
+import { useShortcutLabels } from '@/hooks/useShortcutLabels'
 import { CheckCircle2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { StepContainer } from '../StepContainer'
 
-function formatShortcutKeys(keys: Array<{ label: string }>): string {
-  return keys.map((k) => k.label).join(' + ')
-}
-
 export function FnSpaceStep() {
   const { goNext, goBack, skipOnboarding, isNavigating } = useOnboardingNavigation()
-  const { data: shortcuts } = useShortcutsConfig()
   const [inputValue, setInputValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const handsFreeKeys = shortcuts?.handsFree.keys ?? []
-  const pushToRecordKeys = shortcuts?.pushToRecord.keys ?? []
-  const handsFreeLabel = formatShortcutKeys(handsFreeKeys)
-  const stopLabel = formatShortcutKeys(pushToRecordKeys)
+  const { handsFreeLabel, pushToRecordLabel: stopLabel } = useShortcutLabels()
 
   const handleReset = () => {
     setInputValue('')

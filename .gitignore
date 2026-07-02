@@ -1,5 +1,11 @@
 # Rust build artifacts
 target/
+target-linux/
+
+# Flatpak build artifacts
+dist-flatpak/
+.flatpak-builder/
+flatpak/dictara.deb
 
 # Logs
 logs

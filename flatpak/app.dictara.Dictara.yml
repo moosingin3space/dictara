@@ -1,0 +1,65 @@
+# Flatpak manifest for Dictara (self-hosted distribution via GitHub Releases).
+#
+# This wraps the Tauri-built .deb rather than doing a network-free
+# cargo/npm vendored build: v1 is not submitted to Flathub, so we don't need
+# flatpak-builder's offline sandbox, and this avoids vendoring the
+# onnxruntime binaries that ort downloads at build time. Revisit with
+# flatpak-cargo-generator if/when Flathub submission happens.
+#
+# Build with: scripts/build-flatpak.sh (expects the .deb at flatpak/dictara.deb)
+
+id: app.dictara.Dictara
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: dictara
+
+finish-args:
+  # Wayland first; X11 only as a compatibility fallback
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  # Microphone capture (PipeWire's PulseAudio interface)
+  - --socket=pulseaudio
+  # GPU acceleration for the webview
+  - --device=dri
+  # Cloud transcription APIs + local model downloads
+  - --share=network
+  # Tray icon (StatusNotifierItem)
+  - --talk-name=org.kde.StatusNotifierWatcher
+  # API keys via the Secret Service (GNOME Keyring / KWallet)
+  - --talk-name=org.freedesktop.secrets
+  # Paste injection (RemoteDesktop portal) and global hotkeys
+  # (GlobalShortcuts portal) go through xdg-desktop-portal, which is
+  # accessible by default and prompts the user — no permissions needed here.
+
+modules:
+  # Tray icon library; not part of the GNOME runtime
+  - shared-modules/libayatana-appindicator/libayatana-appindicator-gtk3.json
+
+  - name: dictara
+    buildsystem: simple
+    sources:
+      - type: file
+        path: dictara.deb
+      - type: file
+        path: app.dictara.Dictara.metainfo.xml
+    build-commands:
+      - ar -x dictara.deb
+      - mkdir -p deb-data && tar -xf data.tar.* -C deb-data
+      - mkdir -p /app/bin && cp -a deb-data/usr/bin/. /app/bin/
+      - if [ -d deb-data/usr/lib ]; then mkdir -p /app/lib && cp -a deb-data/usr/lib/. /app/lib/; fi
+      - install -Dm644 app.dictara.Dictara.metainfo.xml /app/share/metainfo/app.dictara.Dictara.metainfo.xml
+      # Flatpak requires the desktop file and icons to be named after the app id
+      - |
+        set -eu
+        desktop=$(find deb-data/usr/share/applications -name '*.desktop' | head -n1)
+        install -Dm644 "$desktop" /app/share/applications/app.dictara.Dictara.desktop
+        sed -i 's/^Icon=.*/Icon=app.dictara.Dictara/' /app/share/applications/app.dictara.Dictara.desktop
+      - |
+        set -eu
+        for dir in deb-data/usr/share/icons/hicolor/*/apps; do
+          size=$(basename "$(dirname "$dir")")
+          icon=$(find "$dir" -type f | head -n1)
+          [ -n "$icon" ] && install -Dm644 "$icon" "/app/share/icons/hicolor/$size/apps/app.dictara.Dictara.png"
+        done

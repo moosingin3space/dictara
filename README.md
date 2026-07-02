@@ -27,6 +27,35 @@ Turn your spoken words into text — in any app, any language.
 
 ---
 
+## Linux (Flatpak)
+
+Dictara ships for Linux as a self-hosted Flatpak attached to each
+[GitHub Release](https://github.com/vitalii-zinchenko/dictara/releases):
+
+```bash
+flatpak install --user Dictara_<version>_x86_64.flatpak
+flatpak run app.dictara.Dictara
+```
+
+Wayland is the supported session type. Two things work differently than on macOS:
+
+- **Auto-paste** goes through the XDG RemoteDesktop portal — the first paste
+  shows a system permission dialog. The permission is remembered across
+  restarts (revoke it under Settings → Apps → Dictara).
+- **Recording shortcuts** are bound by your desktop environment via the
+  GlobalShortcuts portal, not captured in-app. Configure them from the
+  system dialog (Settings → Shortcuts in the app). The trigger keys are
+  *not* swallowed — they also reach the focused application, so prefer
+  combinations you don't use for typing (e.g. `Ctrl+Alt+D`).
+
+GNOME and KDE Plasma implement both portals; wlroots-based compositors
+(Sway, Hyprland) may lack GlobalShortcuts support.
+
+To build the Flatpak locally: `scripts/build-flatpak.sh` (uses podman when
+the host lacks the webkit2gtk build dependencies).
+
+---
+
 ## Troubleshooting
 
 ### Emoji Picker Appears When Using Fn Key

@@ -1,3 +1,7 @@
+// The self-updater never runs on Linux (Flatpak owns the update channel, see
+// setup.rs), so everything below is intentionally unused there.
+#![cfg_attr(target_os = "linux", allow(dead_code))]
+
 #[cfg(not(debug_assertions))]
 use log::warn;
 use log::{error, info};

@@ -16,6 +16,35 @@ pub enum ProviderAccount {
     AzureOpenAI,
 }
 
+/// Non-provider secrets the app needs to persist (e.g. portal restore tokens)
+#[cfg(target_os = "linux")]
+#[derive(strum::AsRefStr)]
+#[strum(serialize_all = "camelCase")]
+pub enum SystemAccount {
+    /// XDG RemoteDesktop portal restore token, lets us re-establish the
+    /// input-injection session on later launches without re-prompting
+    WaylandRemoteDesktopRestoreToken,
+}
+
+/// Save a system secret (plain string) to the keychain
+#[cfg(target_os = "linux")]
+pub fn save_system_secret(account: SystemAccount, value: &str) -> Result<(), error::Error> {
+    let entry = Entry::new(BUNDLE, account.as_ref())?;
+    entry.set_password(value)?;
+    Ok(())
+}
+
+/// Load a system secret (plain string) from the keychain
+#[cfg(target_os = "linux")]
+pub fn load_system_secret(account: SystemAccount) -> Result<Option<String>, error::Error> {
+    let entry = Entry::new(BUNDLE, account.as_ref())?;
+    match entry.get_password() {
+        Ok(value) => Ok(Some(value)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
 /// Save provider configuration as JSON to keychain
 pub fn save_provider_config<T: Serialize>(
     account: ProviderAccount,

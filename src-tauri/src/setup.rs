@@ -1,6 +1,8 @@
 #[cfg(target_os = "macos")]
 use crate::config::OnboardingStep;
-use crate::updater::{self, Updater};
+#[cfg(not(target_os = "linux"))]
+use crate::updater;
+use crate::updater::Updater;
 use crate::{
     autolaunch,
     config::{
@@ -244,7 +246,15 @@ pub fn setup_app(app: &mut tauri::App<tauri::Wry>) -> Result<(), Box<dyn std::er
     // In release mode: checks, downloads, and installs updates when user is idle
     let updater = Arc::new(Updater::new(state_manager));
     app.manage(updater.clone());
+    // On Linux the app ships as a Flatpak, which has its own update channel;
+    // the self-updater must never run there.
+    #[cfg(not(target_os = "linux"))]
     updater::start_periodic_update_check(app.app_handle().clone(), updater);
+    #[cfg(target_os = "linux")]
+    {
+        drop(updater);
+        info!("Self-updater disabled on Linux; updates are delivered via Flatpak");
+    }
 
     // Only fix the Globe key setting when using Fn in any shortcut
     // This prevents the emoji picker from appearing when using Fn for recording

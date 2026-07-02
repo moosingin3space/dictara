@@ -203,10 +203,98 @@ jobs:
           # This automatically generates and uploads latest.json
           # uploadUpdaterJson: true  # This is the default
 
+  # Linux: build the .deb (same dependency list as docker/ci-linux/Dockerfile)
+  build-deb-linux:
+    name: Build Linux .deb
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config clang libclang-dev cmake \
+            libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            libasound2-dev libdbus-1-dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Build .deb
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: npx tauri build --bundles deb --config src-tauri/tauri.prod.conf.json --config src-tauri/tauri.linux.conf.json
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dictara-deb
+          path: src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+  # Linux: wrap the .deb into a Flatpak bundle and attach it to the release
+  publish-flatpak:
+    name: Build and Upload Flatpak
+    needs: [check-release, publish-tauri, build-deb-linux]
+    if: needs.check-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download .deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dictara-deb
+          path: flatpak/
+
+      - name: Rename .deb for the manifest
+        run: mv flatpak/*.deb flatpak/dictara.deb
+
+      - name: Build Flatpak bundle
+        # flathub-infra publishes no tags; pin to a commit per their README
+        uses: flathub-infra/flatpak-github-actions/flatpak-builder@933e9e8ca36e85046ebca8e211f0785c6becac40
+        with:
+          bundle: dictara.flatpak
+          manifest-path: flatpak/app.dictara.Dictara.yml
+          cache-key: flatpak-builder-${{ hashFiles('flatpak/**/*.json') }}
+          upload-artifact: false
+
+      - name: Upload Flatpak to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.check-release.outputs.tag_name }}
+          VERSION: ${{ needs.check-release.outputs.version }}
+        run: |
+          mv dictara.flatpak "Dictara_${VERSION}_x86_64.flatpak"
+          gh release upload "$TAG" "Dictara_${VERSION}_x86_64.flatpak" --clobber
+
   # Third job: cleanup on failure
   cleanup:
     name: Cleanup on Failure
-    needs: [check-release, publish-tauri]
+    needs: [check-release, publish-tauri, build-deb-linux, publish-flatpak]
     if: failure()
     runs-on: ubuntu-latest
     permissions:

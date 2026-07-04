@@ -86,6 +86,11 @@ parakeet-rs = { version = "=0.2.7", features = ["coreml"] }
 keyring = { version = "3", features = ["apple-native"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+# GPU-accelerated whisper.cpp via the GGML Vulkan backend. Requires the
+# Vulkan loader/headers and the glslc shader compiler at build time (provided
+# by the ci-linux container) and the Vulkan runtime at run time (Mesa/RADV in
+# the Flatpak GNOME runtime, reached through --device=dri).
+whisper-rs = { version = "0.13", features = ["vulkan"] }
 # D-Bus Secret Service backend (GNOME Keyring / KWallet), sync so no extra
 # async runtime requirement
 keyring = { version = "3", features = ["sync-secret-service"] }

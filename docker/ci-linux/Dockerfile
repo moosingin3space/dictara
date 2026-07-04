@@ -24,6 +24,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     librsvg2-dev \
     libasound2-dev \
     libdbus-1-dev \
+    # Vulkan headers/loader + glslc: build the whisper.cpp GGML Vulkan backend
+    libvulkan-dev \
+    glslc \
     && rm -rf /var/lib/apt/lists/*
 
 # Node.js 22 (frontend build + Tauri CLI, used by the Flatpak deb build).

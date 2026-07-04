@@ -42,6 +42,10 @@ Wayland is the supported session type. Two things work differently than on macOS
 - **Auto-paste** goes through the XDG RemoteDesktop portal — the first paste
   shows a system permission dialog. The permission is remembered across
   restarts (revoke it under Settings → Apps → Dictara).
+  Auto-paste sends Ctrl+V, which works in normal GUI apps; terminal emulators
+  use Ctrl+Shift+V instead (there is no universal paste shortcut across GUI
+  apps and terminals on Wayland). The transcribed text is always placed on the
+  clipboard, so you can paste manually with Ctrl+Shift+V in any terminal.
 - **Recording shortcuts** are bound by your desktop environment via the
   GlobalShortcuts portal, not captured in-app. Configure them from the
   system dialog (Settings → Shortcuts in the app). The trigger keys are

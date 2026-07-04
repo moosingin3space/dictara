@@ -386,6 +386,14 @@ impl Controller {
             .transcribe(PathBuf::from(audio_file_path), duration_ms)
             .map_err(|e| ActionError::transcription(&e, audio_file_path.to_string()))?;
 
+        if text.trim().is_empty() {
+            log::info!("Transcription returned no text; treating as no speech");
+            if CLEANUP_AUDIO_AFTER_TRANSCRIPTION {
+                cleanup_recording_file(audio_file_path);
+            }
+            return Err(ActionError::no_speech());
+        }
+
         self.handle_transcription_success(&text, audio_file_path)
     }
 

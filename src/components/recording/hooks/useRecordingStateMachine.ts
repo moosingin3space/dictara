@@ -51,6 +51,9 @@ export function useRecordingStateMachine(
     onEventRef.current = onEvent
   }, [onEvent])
 
+  // Holds the pending auto-dismiss timeout id for no_speech errors
+  const autoDismissRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
   // Handlers
   const handleCancel = useCallback(async () => {
     try {
@@ -88,6 +91,12 @@ export function useRecordingStateMachine(
     }
   }, [dismissError])
 
+  // Keep handleDismiss in a ref so the event listener can invoke it without re-subscribing
+  const handleDismissRef = useRef(handleDismiss)
+  useEffect(() => {
+    handleDismissRef.current = handleDismiss
+  }, [handleDismiss])
+
   // Set up single typesafe event listener
   useEffect(() => {
     const setupListener = async () => {
@@ -97,25 +106,38 @@ export function useRecordingStateMachine(
         // Update internal state based on event
         switch (payload.state) {
           case 'started':
+            clearTimeout(autoDismissRef.current)
             setState('recording')
             setError(null)
             break
 
           case 'transcribing':
+            clearTimeout(autoDismissRef.current)
             setState('transcribing')
             break
 
           case 'stopped':
+            clearTimeout(autoDismissRef.current)
             setState('recording')
             break
 
           case 'cancelled':
+            clearTimeout(autoDismissRef.current)
             setState('recording')
             break
 
           case 'error':
             setState('error')
             setError(payload)
+            if (payload.errorType === 'no_speech') {
+              clearTimeout(autoDismissRef.current)
+              autoDismissRef.current = setTimeout(() => {
+                handleDismissRef.current?.()
+              }, 2500)
+            } else {
+              clearTimeout(autoDismissRef.current)
+              autoDismissRef.current = undefined
+            }
             break
         }
 
@@ -133,6 +155,7 @@ export function useRecordingStateMachine(
 
     return () => {
       if (cleanup) cleanup()
+      clearTimeout(autoDismissRef.current)
     }
   }, [])
 

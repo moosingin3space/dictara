@@ -1,4 +1,4 @@
-use log::error;
+use log::{error, warn};
 use std::sync::mpsc;
 use tauri::window::Color;
 use tauri::{Manager, Monitor};
@@ -80,6 +80,18 @@ fn get_monitor_at_cursor(app_handle: &tauri::AppHandle) -> Option<Monitor> {
     None
 }
 
+/// Pick the monitor to place the recording popup on.
+///
+/// Ordered fallbacks: the monitor under the cursor (macOS/X11), then the
+/// primary monitor (macOS/X11), then simply the first available monitor.
+/// The last tier is what makes this work on Wayland, where the compositor
+/// exposes no cursor position or "primary" monitor but does list outputs.
+fn select_popup_monitor(app_handle: &tauri::AppHandle) -> Option<Monitor> {
+    get_monitor_at_cursor(app_handle)
+        .or_else(|| app_handle.primary_monitor().ok().flatten())
+        .or_else(|| app_handle.available_monitors().ok()?.into_iter().next())
+}
+
 fn run_on_main_thread_sync<T, F>(app_handle: &tauri::AppHandle, f: F) -> Result<T, AnyError>
 where
     T: Send + 'static,
@@ -122,20 +134,18 @@ fn open_recording_popup_inner(app_handle: &tauri::AppHandle) -> Result<(), AnyEr
             error!("Failed to set window size: {}", e);
         }
 
-        // Get monitor at cursor, fallback to primary monitor
-        let monitor = get_monitor_at_cursor(app_handle)
-            .or_else(|| app_handle.primary_monitor().ok().flatten());
+        // Get monitor for popup placement: cursor → primary → first available (Wayland fallback)
+        let monitor = select_popup_monitor(app_handle);
 
         if let Some(monitor) = monitor {
             let scale_factor = monitor.scale_factor();
-            let monitor_size = monitor.size();
-            let monitor_position = monitor.position();
+            let work_area = monitor.work_area();
 
-            // Convert physical to logical coordinates
-            let logical_width = monitor_size.width as f64 / scale_factor;
-            let logical_height = monitor_size.height as f64 / scale_factor;
-            let logical_x = monitor_position.x as f64 / scale_factor;
-            let logical_y = monitor_position.y as f64 / scale_factor;
+            // Convert physical to logical coordinates using the work area
+            let logical_width = work_area.size.width as f64 / scale_factor;
+            let logical_height = work_area.size.height as f64 / scale_factor;
+            let logical_x = work_area.position.x as f64 / scale_factor;
+            let logical_y = work_area.position.y as f64 / scale_factor;
 
             // Calculate centered horizontal position
             let x = logical_x + (logical_width - POPUP_WIDTH_NORMAL as f64) / 2.0;
@@ -149,7 +159,7 @@ fn open_recording_popup_inner(app_handle: &tauri::AppHandle) -> Result<(), AnyEr
                 error!("Failed to set window position: {}", e);
             }
         } else {
-            error!("Failed to get monitor at cursor or primary monitor");
+            warn!("No monitor found for popup placement; the compositor will decide where to put it (best-effort on Wayland)");
         }
 
         if let Err(e) = show_window_without_focus(&window) {
@@ -191,19 +201,17 @@ fn resize_recording_popup_inner(app_handle: &tauri::AppHandle, width: u32) -> Re
             height: POPUP_HEIGHT as f64,
         }))?;
 
-        // Recalculate centered position
-        let monitor = get_monitor_at_cursor(app_handle)
-            .or_else(|| app_handle.primary_monitor().ok().flatten());
+        // Recalculate centered position: cursor → primary → first available (Wayland fallback)
+        let monitor = select_popup_monitor(app_handle);
 
         if let Some(monitor) = monitor {
             let scale_factor = monitor.scale_factor();
-            let monitor_size = monitor.size();
-            let monitor_position = monitor.position();
+            let work_area = monitor.work_area();
 
-            let logical_width = monitor_size.width as f64 / scale_factor;
-            let logical_height = monitor_size.height as f64 / scale_factor;
-            let logical_x = monitor_position.x as f64 / scale_factor;
-            let logical_y = monitor_position.y as f64 / scale_factor;
+            let logical_width = work_area.size.width as f64 / scale_factor;
+            let logical_height = work_area.size.height as f64 / scale_factor;
+            let logical_x = work_area.position.x as f64 / scale_factor;
+            let logical_y = work_area.position.y as f64 / scale_factor;
 
             // Center horizontally with new width
             let x = logical_x + (logical_width - width as f64) / 2.0;

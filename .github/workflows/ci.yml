@@ -235,4 +235,26 @@ jobs:
         with:
           bundle: dictara.flatpak
           manifest-path: flatpak/app.dictara.Dictara.yml
+          branch: dev
           cache-key: flatpak-builder-${{ hashFiles('flatpak/**/*.json') }}
+          upload-artifact: false
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dictara-flatpak
+          path: dictara.flatpak
+          if-no-files-found: error
+
+  # Push the dev-branch Flatpak into the repo hosted on GitHub Pages
+  deploy-pages:
+    name: Publish dev Flatpak to Pages
+    needs: flatpak
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy-pages.yml
+    with:
+      flatpak-artifact: dictara-flatpak

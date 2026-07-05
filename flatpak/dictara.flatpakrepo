@@ -1,0 +1,7 @@
+[Flatpak Repo]
+Title=Dictara
+Url=https://dictara.app/flatpak/repo
+Homepage=https://dictara.app
+Comment=Speech-to-text dictation for your desktop
+Description=Official Flatpak repository for Dictara (stable and dev branches)
+Icon=https://dictara.app/icon.png

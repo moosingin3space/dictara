@@ -1,0 +1,11 @@
+[Flatpak Ref]
+Name=app.dictara.Dictara
+Branch=stable
+Title=Dictara
+Comment=Speech-to-text dictation for your desktop
+Url=https://dictara.app/flatpak/repo
+Homepage=https://dictara.app
+Icon=https://dictara.app/icon.png
+IsRuntime=false
+SuggestRemoteName=dictara
+RuntimeRepo=https://dl.flathub.org/repo/flathub.flatpakrepo

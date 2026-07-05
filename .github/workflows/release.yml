@@ -279,8 +279,18 @@ jobs:
         with:
           bundle: dictara.flatpak
           manifest-path: flatpak/app.dictara.Dictara.yml
+          branch: stable
           cache-key: flatpak-builder-${{ hashFiles('flatpak/**/*.json') }}
           upload-artifact: false
+
+      # Hand the bundle to the Pages deploy job, which imports it into the
+      # Flatpak repo hosted at https://dictara.app/flatpak/repo
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dictara-flatpak
+          path: dictara.flatpak
+          if-no-files-found: error
 
       - name: Upload Flatpak to release
         env:
@@ -290,6 +300,20 @@ jobs:
         run: |
           mv dictara.flatpak "Dictara_${VERSION}_x86_64.flatpak"
           gh release upload "$TAG" "Dictara_${VERSION}_x86_64.flatpak" --clobber
+
+  # Publish the stable Flatpak into the repo hosted on GitHub Pages so
+  # existing installs pick it up via `flatpak update`
+  deploy-pages:
+    name: Publish Flatpak to Pages
+    needs: [check-release, publish-flatpak]
+    if: needs.check-release.outputs.should_release == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy-pages.yml
+    with:
+      flatpak-artifact: dictara-flatpak
 
   # Third job: cleanup on failure
   cleanup:

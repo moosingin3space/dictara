@@ -1,0 +1,115 @@
+name: Deploy GitHub Pages
+
+# The Pages site serves both the landing page and the Flatpak repo
+# (https://dictara.app/flatpak/repo, an OSTree repo with `stable` and `dev`
+# branches). Every Pages deployment replaces the entire site, so this
+# workflow always rebuilds the landing page, mirrors the current Flatpak
+# repo back from the live site, and optionally imports a freshly built
+# bundle handed over by ci.yml (dev) or release.yml (stable).
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'landing/**'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      flatpak-artifact:
+        description: 'Name of a workflow artifact containing a .flatpak bundle to import into the hosted Flatpak repo'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    # Job-level concurrency (not workflow-level) so it also applies when this
+    # workflow is called from ci.yml / release.yml — GitHub ignores
+    # workflow-level concurrency in reusable workflows. cancel-in-progress is
+    # off because a cancelled run may carry a Flatpak bundle that would then
+    # never reach the repo.
+    concurrency:
+      group: 'pages'
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: https://dictara.app
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: 'npm'
+          cache-dependency-path: landing/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: landing
+
+      - name: Build landing page
+        run: npm run build
+        working-directory: landing
+
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp -r landing/dist/. site/
+
+      - name: Install flatpak and ostree
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends flatpak ostree
+
+      - name: Mirror the Flatpak repo from the live site
+        run: |
+          mkdir -p site/flatpak
+          ostree init --repo=site/flatpak/repo --mode=archive
+          if curl -fsSL -o /dev/null "$SITE_URL/flatpak/repo/config"; then
+            ostree remote add --repo=site/flatpak/repo --no-gpg-verify previous "$SITE_URL/flatpak/repo"
+            ostree pull --repo=site/flatpak/repo --mirror previous
+            ostree remote delete --repo=site/flatpak/repo previous
+          else
+            echo "No Flatpak repo on the live site yet; starting fresh"
+          fi
+
+      - name: Download Flatpak bundle
+        if: inputs.flatpak-artifact != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.flatpak-artifact }}
+          path: bundle/
+
+      - name: Import Flatpak bundle into the repo
+        if: inputs.flatpak-artifact != ''
+        run: flatpak build-import-bundle site/flatpak/repo bundle/*.flatpak
+
+      - name: Update Flatpak repo metadata
+        run: |
+          flatpak build-update-repo --title=Dictara \
+            --prune --prune-depth=5 site/flatpak/repo
+          cp flatpak/dictara.flatpakrepo \
+             flatpak/dictara.flatpakref \
+             flatpak/dictara-dev.flatpakref \
+             site/flatpak/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: './site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

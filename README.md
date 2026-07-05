@@ -29,12 +29,30 @@ Turn your spoken words into text — in any app, any language.
 
 ## Linux (Flatpak)
 
-Dictara ships for Linux as a self-hosted Flatpak attached to each
-[GitHub Release](https://github.com/vitalii-zinchenko/dictara/releases):
+Dictara ships for Linux as a self-hosted Flatpak, served from our own
+repository. Install the latest stable release with one command:
+
+```bash
+flatpak install --user https://dictara.app/flatpak/dictara.flatpakref
+flatpak run app.dictara.Dictara
+```
+
+From then on, `flatpak update` picks up new releases — no self-updater
+needed.
+
+Want the bleeding edge? A `dev` branch is rebuilt from every push to
+`main`:
+
+```bash
+flatpak install --user https://dictara.app/flatpak/dictara-dev.flatpakref
+```
+
+The `.flatpak` bundle attached to each
+[GitHub Release](https://github.com/vitalii-zinchenko/dictara/releases)
+still works too, for offline installs:
 
 ```bash
 flatpak install --user Dictara_<version>_x86_64.flatpak
-flatpak run app.dictara.Dictara
 ```
 
 Wayland is the supported session type. Two things work differently than on macOS:

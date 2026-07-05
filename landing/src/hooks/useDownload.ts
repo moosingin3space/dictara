@@ -24,6 +24,7 @@ interface DownloadInfo {
 
 const GITHUB_REPO = "vitalii-zinchenko/dictara";
 const RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases`;
+const LINUX_FLATPAKREF_URL = "https://dictara.app/flatpak/dictara.flatpakref";
 
 function detectPlatform(): Platform {
   const userAgent = navigator.userAgent.toLowerCase();
@@ -115,17 +116,6 @@ function findAssetForPlatform(
         return asset;
       }
     }
-
-    if (platform === "linux") {
-      // Match Linux packages
-      if (
-        name.endsWith(".deb") ||
-        name.endsWith(".appimage") ||
-        name.endsWith(".rpm")
-      ) {
-        return asset;
-      }
-    }
   }
 
   return null;
@@ -140,6 +130,14 @@ export function useDownload(): DownloadInfo & { download: () => void } {
   const [isSupported, setIsSupported] = useState(false);
 
   useEffect(() => {
+    // Linux installs from our self-hosted Flatpak repo, not a release
+    // asset — updates then arrive via `flatpak update`. The URL is static,
+    // so it works even if the release-info fetch below fails.
+    if (platform === "linux") {
+      setDownloadUrl(LINUX_FLATPAKREF_URL);
+      setIsSupported(true);
+    }
+
     async function fetchLatestRelease() {
       try {
         const response = await fetch(
@@ -153,6 +151,10 @@ export function useDownload(): DownloadInfo & { download: () => void } {
         const release: GitHubRelease = await response.json();
         setVersion(release.tag_name);
 
+        if (platform === "linux") {
+          return;
+        }
+
         const asset = findAssetForPlatform(release.assets, platform);
 
         if (asset) {
@@ -162,8 +164,10 @@ export function useDownload(): DownloadInfo & { download: () => void } {
           setIsSupported(false);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
-        setIsSupported(false);
+        if (platform !== "linux") {
+          setError(err instanceof Error ? err.message : "Unknown error");
+          setIsSupported(false);
+        }
       } finally {
         setIsLoading(false);
       }

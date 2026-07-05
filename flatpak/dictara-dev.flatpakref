@@ -1,5 +1,5 @@
 [Flatpak Ref]
-Name=app.dictara.Dictara
+Name=app.dictara.Dictara.Devel
 Branch=dev
 Title=Dictara (dev build)
 Comment=Speech-to-text dictation for your desktop — development builds from main

@@ -9,6 +9,8 @@
 # Usage:
 #   scripts/build-flatpak.sh              # full build
 #   scripts/build-flatpak.sh --skip-deb   # reuse existing .deb (fast iteration)
+#   scripts/build-flatpak.sh --devel      # build app.dictara.Dictara.Devel
+#                                         # (what CI ships from main)
 #
 # Install and run:
 #   flatpak install --user --reinstall dist-flatpak/dictara.flatpak
@@ -16,6 +18,16 @@
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+SKIP_DEB=false
+DEVEL=false
+for arg in "$@"; do
+  case "$arg" in
+    --skip-deb) SKIP_DEB=true ;;
+    --devel) DEVEL=true ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
 
 CONTAINER_IMAGE="${DICTARA_CI_IMAGE:-dictara-ci-linux}"
 TAURI_BUILD_ARGS=(build --bundles deb
@@ -45,7 +57,7 @@ build_deb() {
   fi
 }
 
-if [[ "${1:-}" != "--skip-deb" ]]; then
+if [[ "$SKIP_DEB" != "true" ]]; then
   build_deb
 fi
 
@@ -60,17 +72,27 @@ fi
 echo "==> Using $DEB"
 cp "$DEB" flatpak/dictara.deb
 
-echo "==> Building Flatpak"
+APP_ID=app.dictara.Dictara
+MANIFEST=flatpak/app.dictara.Dictara.yml
+BUNDLE=dist-flatpak/dictara.flatpak
+if [[ "$DEVEL" == "true" ]]; then
+  scripts/gen-devel-manifest.sh
+  APP_ID=app.dictara.Dictara.Devel
+  MANIFEST=flatpak/app.dictara.Dictara.Devel.yml
+  BUNDLE=dist-flatpak/dictara-devel.flatpak
+fi
+
+echo "==> Building Flatpak ($APP_ID)"
 # flatpak-builder --user resolves deps against user-level remotes only
 flatpak remote-add --user --if-not-exists flathub \
   https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak-builder --user --install-deps-from=flathub --force-clean \
-  --repo=dist-flatpak/repo dist-flatpak/build flatpak/app.dictara.Dictara.yml
+  --repo=dist-flatpak/repo dist-flatpak/build "$MANIFEST"
 
 echo "==> Creating bundle"
 mkdir -p dist-flatpak
-flatpak build-bundle dist-flatpak/repo dist-flatpak/dictara.flatpak app.dictara.Dictara
+flatpak build-bundle dist-flatpak/repo "$BUNDLE" "$APP_ID"
 
-echo "==> Done: dist-flatpak/dictara.flatpak"
-echo "    flatpak install --user --reinstall dist-flatpak/dictara.flatpak"
-echo "    flatpak run app.dictara.Dictara"
+echo "==> Done: $BUNDLE"
+echo "    flatpak install --user --reinstall $BUNDLE"
+echo "    flatpak run $APP_ID"

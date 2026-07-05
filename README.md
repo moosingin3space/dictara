@@ -40,11 +40,14 @@ flatpak run app.dictara.Dictara
 From then on, `flatpak update` picks up new releases — no self-updater
 needed.
 
-Want the bleeding edge? A `dev` branch is rebuilt from every push to
-`main`:
+Want the bleeding edge? A dev build (`Dictara (Dev)`, app id
+`app.dictara.Dictara.Devel`) is rebuilt from every push to `main`. It's a
+separate app, so it installs alongside the stable one — with its own
+settings — rather than replacing it:
 
 ```bash
 flatpak install --user https://dictara.app/flatpak/dictara-dev.flatpakref
+flatpak run app.dictara.Dictara.Devel
 ```
 
 The `.flatpak` bundle attached to each

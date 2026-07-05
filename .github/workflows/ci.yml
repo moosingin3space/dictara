@@ -229,12 +229,17 @@ jobs:
       - name: Rename .deb for the manifest
         run: mv flatpak/*.deb flatpak/dictara.deb
 
+      # Dev builds ship as app.dictara.Dictara.Devel so they install
+      # alongside the stable app instead of replacing it
+      - name: Generate the Devel manifest
+        run: scripts/gen-devel-manifest.sh
+
       - name: Build Flatpak bundle
         # flathub-infra publishes no tags; pin to a commit per their README
         uses: flathub-infra/flatpak-github-actions/flatpak-builder@933e9e8ca36e85046ebca8e211f0785c6becac40
         with:
-          bundle: dictara.flatpak
-          manifest-path: flatpak/app.dictara.Dictara.yml
+          bundle: dictara-devel.flatpak
+          manifest-path: flatpak/app.dictara.Dictara.Devel.yml
           branch: dev
           cache-key: flatpak-builder-${{ hashFiles('flatpak/**/*.json') }}
           upload-artifact: false
@@ -243,7 +248,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dictara-flatpak
-          path: dictara.flatpak
+          path: dictara-devel.flatpak
           if-no-files-found: error
 
   # Push the dev-branch Flatpak into the repo hosted on GitHub Pages
